@@ -1,14 +1,14 @@
 class_name Fighter
 extends Node2D
-## One fighter: movement, attacks, blocking, taking hits and drawing.
+## One fighter's game logic: movement, attacks, blocking and taking hits.
 ##
 ## - What the fighter *wants* to do comes from a FighterController
 ##   (HumanController or AIController).
-## - Stats, colors and moves come from a CharacterData resource.
-## - The node's position is the point between the fighter's feet.
-##
-## The fighter is drawn with simple shapes for now. Swapping in real sprites
-## or a 3D model later only means replacing _draw(); the game logic stays.
+## - Stats and moves come from a CharacterData resource.
+## - The node's position is the point between the fighter's feet, in
+##   "arena pixels" (100 pixels = 1 meter in the 3D world).
+## - This node draws nothing. A FighterModel (3D) watches it and plays the
+##   matching animation, so gameplay and visuals stay separate.
 
 signal health_changed(current: int, maximum: int)
 signal knocked_out(fighter: Fighter)
@@ -16,7 +16,7 @@ signal hit_landed(attacker: Fighter, defender: Fighter, blocked: bool, at: Vecto
 
 enum State { IDLE, WALK, AIR, ATTACK, BLOCK, HITSTUN, BLOCKSTUN, KO }
 
-const BODY_HALF_WIDTH := 30.0
+const BODY_HALF_WIDTH := 45.0
 const BODY_HEIGHT := 175.0
 const INPUT_BUFFER_FRAMES := 8
 const HITSTOP_FRAMES := 5
@@ -46,12 +46,12 @@ var hitstop := 0
 var hit_flash := 0
 ## How many hits in a row this fighter has taken in the current combo.
 var combo_taken := 0
+## Set by the fight when this fighter wins a round (plays a victory pose).
+var celebrating := false
 
 var _air_attack := false
 var _buffered_move: MoveData
 var _buffer_left := 0
-var _walk_cycle := 0.0
-var _idle_time := 0.0
 
 
 func setup(p_data: CharacterData, p_controller: FighterController, p_opponent: Fighter) -> void:
@@ -72,10 +72,10 @@ func reset_for_round(x: float) -> void:
 	hit_flash = 0
 	_buffered_move = null
 	_buffer_left = 0
+	celebrating = false
 	_set_state(State.IDLE)
 	_face_opponent()
 	health_changed.emit(health, data.max_health)
-	queue_redraw()
 
 
 func is_on_floor() -> bool:
@@ -113,7 +113,6 @@ func _physics_process(delta: float) -> void:
 		hit_flash -= 1
 	if hitstop > 0:
 		hitstop -= 1
-		queue_redraw()
 		return
 
 	state_frames += 1
@@ -126,11 +125,6 @@ func _physics_process(delta: float) -> void:
 	_push_apart()
 	if state in [State.IDLE, State.WALK, State.BLOCK]:
 		_face_opponent()
-
-	_idle_time += delta
-	if state == State.WALK:
-		_walk_cycle += delta * 11.0
-	queue_redraw()
 
 
 func _update_state(allow_input: bool) -> void:
@@ -326,141 +320,3 @@ func _face_opponent() -> void:
 	var d := opponent.position.x - position.x
 	if absf(d) > 4.0:
 		facing = 1 if d > 0.0 else -1
-
-
-# --------------------------------------------------------------------------
-# Drawing (placeholder art made from simple shapes)
-# --------------------------------------------------------------------------
-
-func _draw() -> void:
-	if data == null:
-		return
-	var outfit := data.alt_outfit_color if use_alt_colors else data.outfit_color
-	var skin := data.skin_color
-	var accent := data.accent_color
-	var hair := data.hair_color
-	if hit_flash > 0:
-		outfit = outfit.lerp(Color.WHITE, 0.75)
-		skin = skin.lerp(Color.WHITE, 0.75)
-		accent = accent.lerp(Color.WHITE, 0.75)
-	var outfit_back := outfit.darkened(0.3)
-	var skin_back := skin.darkened(0.25)
-
-	# Shadow on the floor, shrinking as the fighter goes higher.
-	var height := floor_y - position.y
-	var shadow_size := clampf(1.0 - height / 500.0, 0.35, 1.0)
-	draw_set_transform(Vector2(0.0, height), 0.0, Vector2(1.0, 0.22))
-	draw_circle(Vector2.ZERO, 46.0 * shadow_size, Color(0, 0, 0, 0.35))
-
-	var lean := 0.0
-	match state:
-		State.HITSTUN:
-			lean = -0.18
-		State.KO:
-			lean = -PI * 0.5 * clampf(state_frames / 18.0, 0.0, 1.0)
-	draw_set_transform(Vector2.ZERO, lean * facing, Vector2(facing, 1.0))
-
-	var p := _pose()
-	var hip: Vector2 = p.hip
-	var shoulder: Vector2 = p.shoulder
-
-	# Back limbs first (darker), then body, then front limbs.
-	_limb(hip, p.back_knee, p.back_foot, 16.0, outfit_back, outfit_back.darkened(0.3))
-	_limb(shoulder + Vector2(-6, 2), p.back_elbow, p.back_hand, 11.0, skin_back, accent.darkened(0.25))
-
-	var torso := PackedVector2Array([
-		shoulder + Vector2(-24, -6), shoulder + Vector2(24, -6),
-		hip + Vector2(17, 4), hip + Vector2(-17, 4),
-	])
-	draw_colored_polygon(torso, outfit)
-	draw_rect(Rect2(hip + Vector2(-18, -6), Vector2(36, 10)), accent)
-
-	_limb(hip, p.front_knee, p.front_foot, 16.0, outfit, outfit.darkened(0.35))
-
-	var head: Vector2 = p.head
-	draw_line(shoulder, head + Vector2(0, 12), skin, 12.0)
-	draw_circle(head, 19.0, skin)
-	draw_circle(head + Vector2(-4, -8), 17.0, hair)
-	draw_line(head + Vector2(-19, -4), head + Vector2(17, -6), accent, 5.0)
-	var eye := Color(0.1, 0.1, 0.1) if state != State.KO else Color(0.4, 0.1, 0.1)
-	draw_circle(head + Vector2(10, 0), 2.6, eye)
-
-	_limb(shoulder + Vector2(6, 2), p.front_elbow, p.front_hand, 12.0, skin, accent)
-
-
-func _limb(from: Vector2, joint: Vector2, to: Vector2, width: float, color: Color, end_color: Color) -> void:
-	draw_line(from, joint, color, width)
-	draw_line(joint, to, color, width * 0.9)
-	draw_circle(from, width * 0.5, color)
-	draw_circle(joint, width * 0.48, color)
-	draw_circle(to, width * 0.62, end_color)
-
-
-## Returns key body points for the current state, in local coordinates where
-## the fighter faces right and (0, 0) is between the feet.
-func _pose() -> Dictionary:
-	var breathe := sin(_idle_time * 3.0) * 2.0
-	var stride := sin(_walk_cycle) * 16.0 if state == State.WALK else 0.0
-	var p := {
-		"hip": Vector2(0, -82 + breathe * 0.3),
-		"shoulder": Vector2(4, -142 + breathe),
-		"head": Vector2(8, -168 + breathe),
-		"back_knee": Vector2(-14 - stride * 0.5, -42),
-		"back_foot": Vector2(-22 - stride, 0),
-		"front_knee": Vector2(20 + stride * 0.5, -42),
-		"front_foot": Vector2(24 + stride, 0),
-		"back_elbow": Vector2(10, -116 + breathe),
-		"back_hand": Vector2(30, -134 + breathe),
-		"front_elbow": Vector2(22, -112 + breathe),
-		"front_hand": Vector2(44, -140 + breathe),
-	}
-
-	match state:
-		State.AIR:
-			p.back_knee = Vector2(-6, -60)
-			p.back_foot = Vector2(-26, -36)
-			p.front_knee = Vector2(26, -62)
-			p.front_foot = Vector2(14, -30)
-		State.BLOCK, State.BLOCKSTUN:
-			p.back_elbow = Vector2(22, -128)
-			p.back_hand = Vector2(34, -160)
-			p.front_elbow = Vector2(30, -120)
-			p.front_hand = Vector2(40, -152)
-			p.head = Vector2(4, -164)
-		State.HITSTUN:
-			p.front_hand = Vector2(20, -110)
-			p.back_hand = Vector2(-10, -112)
-		State.ATTACK:
-			_attack_pose(p)
-	return p
-
-
-func _attack_pose(p: Dictionary) -> void:
-	var m := current_move
-	if m == null:
-		return
-	var f := float(state_frames)
-	var active_end := float(m.startup_frames + m.active_frames)
-	var extend := 0.0
-	if f <= m.startup_frames:
-		extend = 0.35 * f / maxf(1.0, m.startup_frames)
-	elif f <= active_end:
-		extend = 1.0
-	else:
-		extend = 1.0 - (f - active_end) / maxf(1.0, m.recovery_frames)
-	extend = clampf(extend, 0.0, 1.0)
-
-	var target := Vector2(m.reach, m.hitbox_y)
-	if m.limb == MoveData.Limb.ARM:
-		var hand := (p.front_hand as Vector2).lerp(target, extend)
-		p.front_hand = hand
-		p.front_elbow = ((p.shoulder as Vector2) + hand) * 0.5 + Vector2(0, 6 * (1.0 - extend))
-		p.shoulder = (p.shoulder as Vector2) + Vector2(8 * extend, 0)
-		p.head = (p.head as Vector2) + Vector2(6 * extend, 2 * extend)
-	else:
-		var foot := (p.front_foot as Vector2).lerp(target, extend)
-		p.front_foot = foot
-		p.front_knee = ((p.hip as Vector2) + foot) * 0.5 + Vector2(-8, -14) * extend
-		p.shoulder = (p.shoulder as Vector2) + Vector2(-14 * extend, 6 * extend)
-		p.head = (p.head as Vector2) + Vector2(-18 * extend, 8 * extend)
-		p.back_hand = Vector2(-20, -120)

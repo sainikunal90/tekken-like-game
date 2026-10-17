@@ -9,6 +9,16 @@ enum Limb { ARM, LEG }
 @export var move_name := "Punch"
 @export var limb: Limb = Limb.ARM
 
+@export_group("Animation")
+## Animation played by the 3D model (name inside the character's .glb).
+@export var animation := "Unarmed_Melee_Attack_Punch_A"
+## Second (in the animation) where the fist/foot is fully extended. The
+## animation is sped up or slowed down so this moment lines up with the
+## move's active frames.
+@export var impact_time := 0.5
+## How much of the animation after impact_time is shown during recovery.
+@export var recovery_time := 0.5
+
 @export_group("Damage")
 @export var damage := 6
 ## Damage dealt even when the opponent blocks.

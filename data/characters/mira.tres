@@ -1,12 +1,16 @@
-[gd_resource type="Resource" script_class="CharacterData" load_steps=5 format=3]
+[gd_resource type="Resource" script_class="CharacterData" load_steps=6 format=3]
 
 [ext_resource type="Script" path="res://scripts/data/character_data.gd" id="1_char"]
 [ext_resource type="Script" path="res://scripts/data/move_data.gd" id="2_move"]
+[ext_resource type="PackedScene" path="res://assets/characters/kaykit/Rogue.glb" id="3_model"]
 
 [sub_resource type="Resource" id="Resource_punch"]
 script = ExtResource("2_move")
 move_name = "Quick Jab"
 limb = 0
+animation = "Unarmed_Melee_Attack_Punch_A"
+impact_time = 0.5
+recovery_time = 0.4
 damage = 5
 chip_damage = 1
 hitstun_frames = 15
@@ -15,37 +19,39 @@ knockback = 220.0
 startup_frames = 3
 active_frames = 3
 recovery_frames = 8
-reach = 90.0
-hitbox_y = -136.0
-hitbox_height = 32.0
+reach = 88.0
+hitbox_y = -100.0
+hitbox_height = 40.0
 forward_speed = 0.0
 
 [sub_resource type="Resource" id="Resource_kick"]
 script = ExtResource("2_move")
-move_name = "Spin Kick"
+move_name = "Snap Kick"
 limb = 1
+animation = "Unarmed_Melee_Attack_Kick"
+impact_time = 0.38
+recovery_time = 0.4
 damage = 9
 chip_damage = 2
 hitstun_frames = 19
 blockstun_frames = 11
 knockback = 480.0
-startup_frames = 7
+startup_frames = 6
 active_frames = 4
-recovery_frames = 14
-reach = 135.0
-hitbox_y = -105.0
-hitbox_height = 40.0
-forward_speed = 170.0
+recovery_frames = 13
+reach = 105.0
+hitbox_y = -60.0
+hitbox_height = 50.0
+forward_speed = 240.0
 
 [resource]
 script = ExtResource("1_char")
 display_name = "Mira"
-outfit_color = Color(0.1, 0.65, 0.62, 1)
-alt_outfit_color = Color(0.85, 0.25, 0.35, 1)
-skin_color = Color(0.86, 0.66, 0.52, 1)
-accent_color = Color(0.95, 0.95, 0.98, 1)
-hair_color = Color(0.25, 0.1, 0.08, 1)
-max_health = 90
+model_scene = ExtResource("3_model")
+model_scale = 0.85
+ui_color = Color(0.3, 0.85, 0.6, 1)
+alt_tint = Color(1.25, 0.7, 0.7, 1)
+max_health = 95
 walk_speed = 300.0
 back_walk_multiplier = 0.8
 jump_velocity = 960.0

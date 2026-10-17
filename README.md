@@ -2,7 +2,19 @@
 
 A 2-player fighting game for Android, made with [Godot 4](https://godotengine.org/) (free and open source).
 
-**Status:** playable prototype. Two fighters, punches, kicks, blocking, jumping, combos, best-of-3 rounds, a computer opponent and touch controls. The fighters are drawn with simple shapes for now so we can get the gameplay right before adding real art.
+**Status:** playable prototype in 3D. Four animated fighters, two stages, punches, kicks, blocking, jumping, combos, best-of-3 rounds, a computer opponent and touch controls.
+
+| Fighter | Model | Style |
+|---|---|---|
+| Arjun | Barbarian | Balanced, strong front kick |
+| Mira | Rogue | Fast, quick jab |
+| Kabir | Knight | Slow and tough, uppercut |
+| Zara | Mage | Long reach, sweeping kick |
+
+| Stage | Description |
+|---|---|
+| Himalayan Pass | Stone ledge with snowy peaks, pine forest, a stupa, prayer flags and snowfall |
+| Monsoon Temple | Wet courtyard in front of a sandstone temple at dusk, lamp pillars, palms and rain |
 
 ## Getting started
 
@@ -40,14 +52,16 @@ On phones and tablets, on-screen buttons appear automatically. To test them on a
 ## Project layout
 
 ```
-data/characters/      One .tres file per character (stats, colors, moves)
+assets/characters/    3D character models (.glb) with their animations
+data/characters/      One .tres file per character (model, stats, moves)
 scenes/               main_menu.tscn and fight.tscn
 scripts/
-  autoload/           GameState (mode, picked characters) and InputSetup (all controls)
+  autoload/           GameState (mode, characters, stages) and InputSetup (all controls)
   controllers/        Who drives a fighter: HumanController, AIController
   data/               CharacterData and MoveData resource definitions
-  fight/              fight.gd (rounds, timer, KO), arena.gd (stage), hit_spark.gd
-  fighter/            fighter.gd - movement, attacks, hits, blocking, drawing
+  fight/              fight.gd (rounds, timer, KO), fight_camera.gd, hit_spark.gd
+  fighter/            fighter.gd (game logic), fighter_model.gd (3D model + animations)
+  stages/             stage_3d.gd (helpers) + one script per stage
   ui/                 main_menu.gd, hud.gd, touch_controls.gd
 tests/smoke_test.gd   Plays a full CPU vs CPU match headlessly to catch errors
 ```
@@ -56,13 +70,34 @@ tests/smoke_test.gd   Plays a full CPU vs CPU match headlessly to catch errors
 
 - A **Fighter** never reads the keyboard directly. It asks its **FighterController** "do you want to move / punch / block?". That means humans, the CPU, and later online players or replays are interchangeable.
 - A fighter's stats and moves live in a **CharacterData** resource with **MoveData** for each attack (damage, startup / active / recovery frames, reach, hitstun, knockback). Balance changes are just number edits in the Godot inspector.
-- **fight.gd** owns the match: spawns fighters, runs the round timer, decides round winners, and shows the HUD.
+- **Gameplay is 2D, visuals are 3D** (like Street Fighter IV). `fighter.gd` moves fighters along a line in "arena pixels" (100 px = 1 m) and handles hitboxes. `fighter_model.gd` reads that state each frame, places the 3D model and plays the right animation (idle, walk, punch, kick, block, hit, K.O., victory). Attack animations are re-timed so the punch or kick lands exactly on the move's active frames (`impact_time` in MoveData).
+- **fight.gd** owns the match: builds the stage, spawns fighters and their models, runs the round timer, decides round winners, and shows the HUD. **fight_camera.gd** keeps both fighters in view.
+- **Stages** are built in code from simple shapes and generated terrain (`scripts/stages/`), so they need no extra art files and are easy to tweak.
 
 ## Adding a new character
 
-1. In Godot's FileSystem panel, duplicate `data/characters/arjun.tres` → e.g. `kabir.tres`.
-2. Select it and edit its name, colors, stats and moves in the Inspector. (Right-click the `punch` / `kick` sub-resources → **Make Unique** so you don't change Arjun's moves too.)
+1. In Godot's FileSystem panel, duplicate `data/characters/arjun.tres` → e.g. `dev.tres`.
+2. Select it and edit its name, model, stats and moves in the Inspector. (Right-click the `punch` / `kick` sub-resources → **Make Unique** so you don't change Arjun's moves too.)
 3. Add the path to `CHARACTERS` in `scripts/autoload/game_state.gd`.
+
+### Using a different 3D model
+
+Any rigged, animated `.glb` / `.gltf` / `.fbx` works if it has these animation names (rename them in Godot's import dock if needed):
+`Unarmed_Idle`, `Walking_A`, `Walking_Backwards`, `Jump_Idle`, `Blocking`, `Block_Hit`, `Hit_A`, `Death_A`, `Cheer`, plus the attack animations named in each move (`Unarmed_Melee_Attack_Punch_A`, `Unarmed_Melee_Attack_Kick`, ...).
+
+All **KayKit** character packs (free, CC0) use exactly these names, so their characters drop straight in:
+- KayKit Adventurers (used now): https://kaylousberg.itch.io/kaykit-adventurers
+- KayKit Skeletons: https://kaylousberg.itch.io/kaykit-skeletons
+
+Copy the `.glb` into `assets/characters/`, set it as `model_scene` in a character `.tres`, and adjust `model_scale` until the fighter is about 1.8 m tall. For a model from Mixamo or Blender, set the animation names in the import dock or change the names at the top of `fighter_model.gd`. Set `impact_time` on each move to the second in the animation where the fist or foot is fully extended.
+
+## Adding a new stage
+
+1. Copy `scripts/stages/stage_temple.gd` to e.g. `stage_beach.gd` and change `build()`. Helpers in `stage_3d.gd` make boxes, cylinders, spheres, terrain, trees (multimesh) and rain/snow.
+2. Keep the floor at y = 0 and the area between x = -7 and x = 7 clear; that's where fighters move. Scenery goes at negative z (behind) and to the sides.
+3. Add it to `STAGES` in `scripts/autoload/game_state.gd`.
+
+You can also build a stage in the Godot editor: make a scene with a root script that `extends Stage3D`, and place imported models (e.g. from KayKit or Kenney packs) in it.
 
 ## Building the Android APK
 
@@ -96,11 +131,16 @@ It should print `SMOKE TEST PASSED`.
 
 ## Ideas / roadmap
 
-- [ ] Real character art (sprite sheets or 3D models) and animations
+- [x] 3D character models and animations (KayKit Adventurers)
+- [x] 3D stages: Himalayan Pass, Monsoon Temple
+- [ ] More stages: beach, city rooftop
 - [ ] Sound effects and music
 - [ ] More moves per character: low attacks, crouch, throws, specials (e.g. ↓→ + Punch)
 - [ ] Character select screen with portraits
-- [ ] More stages
 - [ ] Smarter CPU (combos, reading the player's habits)
 - [ ] Training mode with hitbox display
 - [ ] Online / Bluetooth versus
+
+## Credits
+
+- Character models and animations: **KayKit Adventurers** by Kay Lousberg (www.kaylousberg.com), CC0 license. See `assets/characters/kaykit/LICENSE.txt`.

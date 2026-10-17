@@ -1,8 +1,14 @@
 extends Node2D
-## Runs a match: builds the stage, spawns both fighters with the right
-## controllers, and handles rounds, the timer, K.O.s and the end screen.
+## Runs a match: builds the 3D stage, spawns both fighters (logic + 3D
+## model) with the right controllers, and handles rounds, the timer, K.O.s
+## and the end screen.
+##
+## Gameplay happens on a flat line measured in "arena pixels"
+## (100 px = 1 m). FighterModel turns that into 3D positions.
 
 const FIGHTER_SCRIPT := preload("res://scripts/fighter/fighter.gd")
+const ARENA_WIDTH := 1400.0
+const FLOOR_Y := 620.0
 
 var fighters: Array[Fighter] = []
 var round_wins: Array[int] = [0, 0]
@@ -10,28 +16,24 @@ var round_number := 0
 var time_left := 0.0
 var round_active := false
 
-var _screen := Vector2(1280, 720)
-var _floor_y := 620.0
+var models: Array[FighterModel] = []
+var stage: Stage3D
+
 var _hud: Hud
-var _camera: Camera2D
+var _camera: FightCamera
 var _effects: Node2D
-var _shake := 0.0
 
 
 func _ready() -> void:
-	_screen = get_viewport_rect().size
-	_floor_y = _screen.y - 100.0
-
-	var arena := Arena.new()
-	arena.size = _screen
-	arena.floor_y = _floor_y
-	add_child(arena)
-
-	_camera = Camera2D.new()
-	_camera.position = _screen * 0.5
-	add_child(_camera)
+	stage = GameState.create_stage()
+	add_child(stage)
+	stage.build()
 
 	_spawn_fighters()
+
+	_camera = FightCamera.new()
+	add_child(_camera)
+	_camera.models = models
 
 	_effects = Node2D.new()
 	add_child(_effects)
@@ -40,7 +42,7 @@ func _ready() -> void:
 	add_child(_hud)
 	_hud.build(
 		[fighters[0].data.display_name, fighters[1].data.display_name] as Array[String],
-		[_outfit(fighters[0]), _outfit(fighters[1])] as Array[Color])
+		[fighters[0].data.ui_color, fighters[1].data.ui_color] as Array[Color])
 	_hud.rematch_pressed.connect(_on_rematch)
 	_hud.menu_pressed.connect(_go_to_menu)
 
@@ -68,15 +70,23 @@ func _spawn_fighters() -> void:
 	for i in 2:
 		var f: Fighter = FIGHTER_SCRIPT.new()
 		f.name = "Player%d" % (i + 1)
-		f.floor_y = _floor_y
-		f.arena_left = 20.0
-		f.arena_right = _screen.x - 20.0
+		f.floor_y = FLOOR_Y
+		f.arena_left = 0.0
+		f.arena_right = ARENA_WIDTH
+		f.visible = false
 		add_child(f)
 		fighters.append(f)
 
 	fighters[0].setup(p1_data, controllers[0], fighters[1])
 	fighters[1].setup(p2_data, controllers[1], fighters[0])
 	fighters[1].use_alt_colors = p1_data == p2_data
+
+	for f in fighters:
+		var model := FighterModel.new()
+		model.name = f.name + "Model"
+		add_child(model)
+		model.setup(f, ARENA_WIDTH * 0.5)
+		models.append(model)
 
 	for i in 2:
 		var f := fighters[i]
@@ -92,11 +102,6 @@ func _process(delta: float) -> void:
 		if time_left <= 0.0:
 			_end_round(true)
 
-	if _shake > 0.0:
-		_shake = maxf(_shake - delta * 40.0, 0.0)
-		_camera.offset = Vector2(randf_range(-_shake, _shake), randf_range(-_shake, _shake))
-	else:
-		_camera.offset = Vector2.ZERO
 
 
 func _unhandled_input(event: InputEvent) -> void:
@@ -112,10 +117,11 @@ func _notification(what: int) -> void:
 
 func _start_round() -> void:
 	round_number += 1
-	var center := _screen.x * 0.5
+	var center := ARENA_WIDTH * 0.5
 	fighters[0].reset_for_round(center - 220.0)
 	fighters[1].reset_for_round(center + 220.0)
 	_set_frozen(true)
+	_camera.snap()
 	time_left = GameState.ROUND_TIME
 	_hud.set_timer(ceili(time_left))
 	_hud.set_round_wins(round_wins)
@@ -160,6 +166,8 @@ func _end_round(timed_out: bool) -> void:
 		_hud.show_message("DRAW")
 	else:
 		_hud.show_message("%s WINS" % fighters[winner].data.display_name.to_upper())
+		if not fighters[winner].is_knocked_out():
+			fighters[winner].celebrating = true
 	_hud.set_round_wins(round_wins)
 	await get_tree().create_timer(1.6).timeout
 
@@ -196,24 +204,25 @@ func _on_health_changed(current: int, maximum: int, player: int) -> void:
 
 
 func _on_knocked_out(_fighter: Fighter) -> void:
-	_shake = 14.0
+	_camera.shake = 14.0
 	_end_round(false)
 
 
 func _on_hit_landed(attacker: Fighter, defender: Fighter, blocked: bool, at: Vector2, heavy: bool) -> void:
+	# The hit happens in arena space; show the spark where that point
+	# appears on screen in 3D.
+	var world := models[0].world_position_of(at) + Vector3(0, 0, 0.3)
+	if _camera.is_position_behind(world):
+		return
 	var spark := HitSpark.new()
-	spark.position = at
+	spark.position = _camera.unproject_position(world)
 	spark.blocked = blocked
 	spark.heavy = heavy
 	_effects.add_child(spark)
 	if not blocked:
-		_shake = maxf(_shake, 8.0 if heavy else 4.0)
+		_camera.shake = maxf(_camera.shake, 8.0 if heavy else 4.0)
 		if defender.combo_taken >= 2:
 			_hud.show_combo(fighters.find(attacker), defender.combo_taken)
-
-
-func _outfit(f: Fighter) -> Color:
-	return f.data.alt_outfit_color if f.use_alt_colors else f.data.outfit_color
 
 
 func _on_rematch() -> void:
