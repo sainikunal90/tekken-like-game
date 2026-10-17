@@ -1,0 +1,54 @@
+[gd_resource type="Resource" script_class="CharacterData" load_steps=5 format=3]
+
+[ext_resource type="Script" path="res://scripts/data/character_data.gd" id="1_char"]
+[ext_resource type="Script" path="res://scripts/data/move_data.gd" id="2_move"]
+
+[sub_resource type="Resource" id="Resource_punch"]
+script = ExtResource("2_move")
+move_name = "Straight Punch"
+limb = 0
+damage = 6
+chip_damage = 1
+hitstun_frames = 16
+blockstun_frames = 9
+knockback = 240.0
+startup_frames = 4
+active_frames = 3
+recovery_frames = 9
+reach = 95.0
+hitbox_y = -138.0
+hitbox_height = 34.0
+forward_speed = 0.0
+
+[sub_resource type="Resource" id="Resource_kick"]
+script = ExtResource("2_move")
+move_name = "Roundhouse Kick"
+limb = 1
+damage = 11
+chip_damage = 2
+hitstun_frames = 20
+blockstun_frames = 12
+knockback = 520.0
+startup_frames = 8
+active_frames = 4
+recovery_frames = 16
+reach = 125.0
+hitbox_y = -88.0
+hitbox_height = 40.0
+forward_speed = 140.0
+
+[resource]
+script = ExtResource("1_char")
+display_name = "Arjun"
+outfit_color = Color(0.88, 0.36, 0.14, 1)
+alt_outfit_color = Color(0.55, 0.2, 0.6, 1)
+skin_color = Color(0.78, 0.56, 0.4, 1)
+accent_color = Color(0.98, 0.84, 0.3, 1)
+hair_color = Color(0.08, 0.06, 0.06, 1)
+max_health = 100
+walk_speed = 260.0
+back_walk_multiplier = 0.75
+jump_velocity = 900.0
+gravity = 2600.0
+punch = SubResource("Resource_punch")
+kick = SubResource("Resource_kick")

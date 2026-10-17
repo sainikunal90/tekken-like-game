@@ -1,0 +1,54 @@
+[gd_resource type="Resource" script_class="CharacterData" load_steps=5 format=3]
+
+[ext_resource type="Script" path="res://scripts/data/character_data.gd" id="1_char"]
+[ext_resource type="Script" path="res://scripts/data/move_data.gd" id="2_move"]
+
+[sub_resource type="Resource" id="Resource_punch"]
+script = ExtResource("2_move")
+move_name = "Quick Jab"
+limb = 0
+damage = 5
+chip_damage = 1
+hitstun_frames = 15
+blockstun_frames = 8
+knockback = 220.0
+startup_frames = 3
+active_frames = 3
+recovery_frames = 8
+reach = 90.0
+hitbox_y = -136.0
+hitbox_height = 32.0
+forward_speed = 0.0
+
+[sub_resource type="Resource" id="Resource_kick"]
+script = ExtResource("2_move")
+move_name = "Spin Kick"
+limb = 1
+damage = 9
+chip_damage = 2
+hitstun_frames = 19
+blockstun_frames = 11
+knockback = 480.0
+startup_frames = 7
+active_frames = 4
+recovery_frames = 14
+reach = 135.0
+hitbox_y = -105.0
+hitbox_height = 40.0
+forward_speed = 170.0
+
+[resource]
+script = ExtResource("1_char")
+display_name = "Mira"
+outfit_color = Color(0.1, 0.65, 0.62, 1)
+alt_outfit_color = Color(0.85, 0.25, 0.35, 1)
+skin_color = Color(0.86, 0.66, 0.52, 1)
+accent_color = Color(0.95, 0.95, 0.98, 1)
+hair_color = Color(0.25, 0.1, 0.08, 1)
+max_health = 90
+walk_speed = 300.0
+back_walk_multiplier = 0.8
+jump_velocity = 960.0
+gravity = 2600.0
+punch = SubResource("Resource_punch")
+kick = SubResource("Resource_kick")

@@ -1,0 +1,24 @@
+# Godot 4 cache and imported assets (regenerated when the project is opened)
+.godot/
+.import/
+
+# Android custom build template (install it from Project > Install Android Build Template)
+/android/
+
+# Exported builds
+/build/
+*.apk
+*.aab
+*.idsig
+
+# Signing keys - never commit these
+*.keystore
+*.jks
+export_credentials.cfg
+
+# OS / editor junk
+.DS_Store
+Thumbs.db
+*.tmp
+.vscode/
+.idea/
